@@ -1,11 +1,13 @@
-import { useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusPill } from '@/components/StatusPill';
-import { mockOperations } from '@/lib/mockData';
+import { operationService, Operation } from '@/lib/operationService';
+import { locationService } from '@/lib/locationService';
+import { toast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
@@ -22,85 +24,48 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-// 👇 Status union – use what StatusPill supports
-type TransferStatus = 'Draft' | 'Ready' | 'Done';
-
-// 👇 Strong type for a transfer row
-type Transfer = {
-  id: string;
-  type: 'Internal Transfer';
-  reference: string;
-  from: string;
-  to: string;
-  scheduleDate: string;
-  responsible: string;
-  status: TransferStatus;
-};
+type TransferStatus = 'Draft' | 'Ready' | 'Done' | 'Waiting';
 
 export default function InternalTransfers() {
-  // 👇 statusFilter is now 'all' or one of the statuses, not generic string
   const [statusFilter, setStatusFilter] = useState<'all' | TransferStatus>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isNewOpen, setIsNewOpen] = useState(false);
-
-  // ⬇️ KEEP existing mock + ADD 3 more rows, but typed as Transfer[]
-  const [transfers, setTransfers] = useState<Transfer[]>(() => {
-    const base = mockOperations
-      .filter((op) => op.type === 'Internal Transfer')
-      .map((op: any): Transfer => ({
-        id: op.id,
-        type: 'Internal Transfer',
-        reference: op.reference,
-        from: op.from,
-        to: op.to,
-        scheduleDate: op.scheduleDate,
-        responsible: op.responsible,
-        status: op.status as TransferStatus,
-      }));
-
-    const extra: Transfer[] = [
-      {
-        id: 'demo-transfer-2',
-        type: 'Internal Transfer',
-        reference: 'WH/INT/0002',
-        from: 'SF/Cold1',
-        to: 'WH/Stock3',
-        scheduleDate: '2025-11-27',
-        responsible: 'John Manager',
-        status: 'Ready',
-      },
-      {
-        id: 'demo-transfer-3',
-        type: 'Internal Transfer',
-        reference: 'WH/INT/0003',
-        from: 'WH/Stock2',
-        to: 'WH/Stock1',
-        scheduleDate: '2025-11-28',
-        responsible: 'Warehouse Staff',
-        status: 'Done',
-      },
-      {
-        id: 'demo-transfer-4',
-        type: 'Internal Transfer',
-        reference: 'WH/INT/0004',
-        from: 'WH/ColdStorage',
-        to: 'WH/Stock2',
-        scheduleDate: '2025-11-29',
-        responsible: 'Inventory Manager',
-        status: 'Draft',
-      },
-    ];
-
-    return [...base, ...extra];
-  });
+  const [loading, setLoading] = useState(true);
+  const [transfers, setTransfers] = useState<Operation[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
 
   // Form state
   const [reference, setReference] = useState('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [fromLocation, setFromLocation] = useState('');
+  const [toLocation, setToLocation] = useState('');
   const [scheduleDate, setScheduleDate] = useState('');
   const [responsible, setResponsible] = useState('');
   const [status, setStatus] = useState<TransferStatus>('Draft');
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [operations, locations] = await Promise.all([
+        operationService.getAll({ type: 'Internal Transfer' }),
+        locationService.getAll()
+      ]);
+      
+      setTransfers(operations || []);
+      setLocations(locations || []);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to load transfers',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredTransfers = transfers.filter((t) => {
     const matchesStatus = statusFilter === 'all' || t.status === statusFilter;
@@ -113,31 +78,49 @@ export default function InternalTransfers() {
   const openNewDialog = () => {
     const nextNumber = transfers.length + 1;
     setReference(`WH/INT/${String(nextNumber).padStart(4, '0')}`);
-    setFrom('');
-    setTo('');
+    setFromLocation('');
+    setToLocation('');
     setScheduleDate('');
     setResponsible('');
     setStatus('Draft');
     setIsNewOpen(true);
   };
 
-  const handleCreateTransfer = (e: React.FormEvent) => {
+  const handleCreateTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const newTransfer: Transfer = {
-      id: `transfer-${Date.now()}`,
-      type: 'Internal Transfer',
-      reference,
-      from,
-      to,
-      scheduleDate: scheduleDate || new Date().toISOString(),
-      responsible,
-      status,
-    };
+    try {
+      await operationService.create({
+        type: 'Internal Transfer',
+        from_location: fromLocation,
+        to_location: toLocation,
+        schedule_date: scheduleDate || new Date().toISOString().split('T')[0],
+        status,
+      });
 
-    setTransfers((prev) => [...prev, newTransfer]);
-    setIsNewOpen(false);
+      toast({
+        title: 'Success',
+        description: 'Transfer created successfully'
+      });
+
+      setIsNewOpen(false);
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to create transfer',
+        variant: 'destructive'
+      });
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -157,6 +140,7 @@ export default function InternalTransfers() {
             <TabsList>
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="Draft">Draft</TabsTrigger>
+              <TabsTrigger value="Waiting">Waiting</TabsTrigger>
               <TabsTrigger value="Ready">Ready</TabsTrigger>
               <TabsTrigger value="Done">Done</TabsTrigger>
             </TabsList>
@@ -186,25 +170,32 @@ export default function InternalTransfers() {
               </tr>
             </thead>
             <tbody>
-              {filteredTransfers.map((t) => (
-                <tr key={t.id}>
-                  <td className="font-medium">{t.reference}</td>
-                  <td>{t.from}</td>
-                  <td>{t.to}</td>
-                  <td>{new Date(t.scheduleDate).toLocaleDateString()}</td>
-                  <td>{t.responsible}</td>
-                  <td>
-                    {/* 👇 now TS knows t.status is TransferStatus, which is compatible with StatusPill */}
-                    <StatusPill status={t.status} />
+              {filteredTransfers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center text-muted-foreground py-8">
+                    No transfers found
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredTransfers.map((t) => (
+                  <tr key={t.id}>
+                    <td className="font-medium">{t.reference}</td>
+                    <td>{t.from_location}</td>
+                    <td>{t.to_location}</td>
+                    <td>{new Date(t.schedule_date).toLocaleDateString()}</td>
+                    <td>{t.responsible_name || '-'}</td>
+                    <td>
+                      <StatusPill status={t.status} />
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </Card>
 
-      {/* Dialog (unchanged except for types) */}
+      {/* Dialog */}
       <Dialog open={isNewOpen} onOpenChange={setIsNewOpen}>
         <DialogContent>
           <DialogHeader>
@@ -218,21 +209,35 @@ export default function InternalTransfers() {
             </div>
 
             <div className="space-y-2">
-              <Label>From</Label>
-              <Input
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-                required
-              />
+              <Label>From Location</Label>
+              <Select value={fromLocation} onValueChange={setFromLocation} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((loc) => (
+                    <SelectItem key={loc.id} value={loc.name}>
+                      {loc.name} ({loc.warehouse_name})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>To</Label>
-              <Input
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                required
-              />
+              <Label>To Location</Label>
+              <Select value={toLocation} onValueChange={setToLocation} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((loc) => (
+                    <SelectItem key={loc.id} value={loc.name}>
+                      {loc.name} ({loc.warehouse_name})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -249,6 +254,7 @@ export default function InternalTransfers() {
               <Input
                 value={responsible}
                 onChange={(e) => setResponsible(e.target.value)}
+                placeholder="Optional"
               />
             </div>
 
@@ -263,6 +269,7 @@ export default function InternalTransfers() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Draft">Draft</SelectItem>
+                  <SelectItem value="Waiting">Waiting</SelectItem>
                   <SelectItem value="Ready">Ready</SelectItem>
                   <SelectItem value="Done">Done</SelectItem>
                 </SelectContent>
@@ -270,7 +277,7 @@ export default function InternalTransfers() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsNewOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setIsNewOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit">Create Transfer</Button>

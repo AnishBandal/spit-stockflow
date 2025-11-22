@@ -14,7 +14,7 @@ export default function Stock() {
   const [warehouseFilter, setWarehouseFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [editingRow, setEditingRow] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState({ quantity: 0, reserved_quantity: 0 });
+  const [editValues, setEditValues] = useState({ on_hand: 0, free_to_use: 0 });
 
   useEffect(() => {
     loadData();
@@ -40,14 +40,14 @@ export default function Stock() {
     }
   };
 
-  const startEdit = (stockId: string, quantity: number, reserved: number) => {
+  const startEdit = (stockId: string, onHand: number, freeToUse: number) => {
     setEditingRow(stockId);
-    setEditValues({ quantity, reserved_quantity: reserved });
+    setEditValues({ on_hand: onHand, free_to_use: freeToUse });
   };
 
   const saveEdit = async (stockId: string) => {
     try {
-      await stockService.updateQuantity(stockId, editValues.quantity, editValues.reserved_quantity);
+      await stockService.updateQuantity(stockId, editValues);
       toast({ title: 'Stock updated successfully', description: 'Changes have been logged in Move History' });
       setEditingRow(null);
       loadData();
@@ -110,69 +110,76 @@ export default function Stock() {
               </tr>
             </thead>
             <tbody>
-              {stockData.map((stock) => {
-                const isEditing = editingRow === stock.id.toString();
-                const freeToUse = stock.quantity - stock.reserved_quantity;
-                return (
-                  <tr key={stock.id}>
-                    <td className="font-medium">{stock.product_name || stock.product_id}</td>
-                    <td>{stock.warehouse_name || stock.warehouse_id}</td>
-                    <td>{stock.location_name || stock.location_id}</td>
-                    <td>${stock.cost_per_unit || 0}</td>
-                    <td>
-                      {isEditing ? (
-                        <Input
-                          type="number"
-                          value={editValues.quantity}
-                          onChange={(e) => setEditValues({ ...editValues, quantity: parseInt(e.target.value) || 0 })}
-                          className="w-24"
-                        />
-                      ) : (
-                        stock.quantity
-                      )}
-                    </td>
-                    <td>
-                      {isEditing ? (
-                        <Input
-                          type="number"
-                          value={editValues.quantity - editValues.reserved_quantity}
-                          onChange={(e) => {
-                            const free = parseInt(e.target.value) || 0;
-                            setEditValues({ ...editValues, reserved_quantity: editValues.quantity - free });
-                          }}
-                          className="w-24"
-                        />
-                      ) : (
-                        freeToUse
-                      )}
-                    </td>
-                    <td>
-                      {isEditing ? (
-                        <div className="flex gap-2">
+              {stockData.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No stock data available. Stock will appear here after operations are completed.
+                  </td>
+                </tr>
+              ) : (
+                stockData.map((stock) => {
+                  const isEditing = editingRow === stock.id.toString();
+                  return (
+                    <tr key={stock.id}>
+                      <td className="font-medium">{stock.product_name || stock.product_id}</td>
+                      <td>{stock.warehouse_name || stock.warehouse_id}</td>
+                      <td>{stock.location_name || stock.location_id}</td>
+                      <td>${stock.cost_per_unit || 0}</td>
+                      <td>
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            value={editValues.on_hand}
+                            onChange={(e) => setEditValues({ ...editValues, on_hand: parseInt(e.target.value) || 0 })}
+                            className="w-24"
+                            min="0"
+                          />
+                        ) : (
+                          stock.on_hand
+                        )}
+                      </td>
+                      <td>
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            value={editValues.free_to_use}
+                            onChange={(e) => setEditValues({ ...editValues, free_to_use: parseInt(e.target.value) || 0 })}
+                            className="w-24"
+                            min="0"
+                            max={editValues.on_hand}
+                          />
+                        ) : (
+                          stock.free_to_use
+                        )}
+                      </td>
+                      <td>
+                        {isEditing ? (
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => saveEdit(stock.id.toString())}
+                            >
+                              <Check className="h-4 w-4 text-success" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={cancelEdit}>
+                              <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        ) : (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => saveEdit(stock.id.toString())}
+                            onClick={() => startEdit(stock.id.toString(), stock.on_hand, stock.free_to_use)}
                           >
-                            <Check className="h-4 w-4 text-success" />
+                            <Edit2 className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={cancelEdit}>
-                            <X className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => startEdit(stock.id.toString(), stock.quantity, stock.reserved_quantity)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

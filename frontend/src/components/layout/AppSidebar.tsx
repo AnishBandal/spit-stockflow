@@ -17,6 +17,7 @@ import { NavLink } from '@/components/NavLink';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '@/lib/auth';
 import { toast } from '@/hooks/use-toast';
+import { permissions, getCurrentUser } from '@/lib/permissions';
 import {
   Sidebar,
   SidebarContent,
@@ -37,6 +38,7 @@ export function AppSidebar() {
   const location = useLocation();
   const user = authService.getCurrentUser();
   const collapsed = state === 'collapsed';
+  const userRole = user?.role || 'Warehouse Staff';
 
   const handleLogout = () => {
     authService.logout();
@@ -48,23 +50,26 @@ export function AppSidebar() {
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
   ];
 
+  // Staff can only access: Transfers and Adjustments (for counting)
   const operationsItems = [
-    { title: 'Receipts', url: '/receipts', icon: FileText },
-    { title: 'Deliveries', url: '/deliveries', icon: Truck },
-    { title: 'Internal Transfers', url: '/transfers', icon: ArrowLeftRight },
-    { title: 'Stock Adjustments', url: '/adjustments', icon: TrendingDown },
-  ];
+    { title: 'Receipts', url: '/receipts', icon: FileText, roles: ['Inventory Manager', 'Admin'] },
+    { title: 'Deliveries', url: '/deliveries', icon: Truck, roles: ['Inventory Manager', 'Admin'] },
+    { title: 'Internal Transfers', url: '/transfers', icon: ArrowLeftRight, roles: ['Inventory Manager', 'Admin', 'Warehouse Staff'] },
+    { title: 'Stock Adjustments', url: '/adjustments', icon: TrendingDown, roles: ['Inventory Manager', 'Admin', 'Warehouse Staff'] },
+  ].filter(item => !item.roles || item.roles.includes(userRole));
 
+  // Staff can only access Stock (for counting)
   const inventoryItems = [
-    { title: 'Products', url: '/products', icon: Package },
-    { title: 'Stock', url: '/stock', icon: ClipboardList },
-    { title: 'Move History', url: '/move-history', icon: History },
-  ];
+    { title: 'Products', url: '/products', icon: Package, roles: ['Inventory Manager', 'Admin'] },
+    { title: 'Stock', url: '/stock', icon: ClipboardList, roles: ['Inventory Manager', 'Admin', 'Warehouse Staff'] },
+    { title: 'Move History', url: '/move-history', icon: History, roles: ['Inventory Manager', 'Admin'] },
+  ].filter(item => !item.roles || item.roles.includes(userRole));
 
+  // Staff cannot access Settings
   const settingsItems = [
-    { title: 'Warehouses', url: '/warehouses', icon: Warehouse },
-    { title: 'Locations', url: '/locations', icon: MapPin },
-  ];
+    { title: 'Warehouses', url: '/warehouses', icon: Warehouse, roles: ['Inventory Manager', 'Admin'] },
+    { title: 'Locations', url: '/locations', icon: MapPin, roles: ['Inventory Manager', 'Admin'] },
+  ].filter(item => !item.roles || item.roles.includes(userRole));
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -99,59 +104,65 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          {!collapsed && <SidebarGroupLabel>Inventory</SidebarGroupLabel>}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {inventoryItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink to={item.url} className="gap-3">
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {inventoryItems.length > 0 && (
+          <SidebarGroup>
+            {!collapsed && <SidebarGroupLabel>Inventory</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {inventoryItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                      <NavLink to={item.url} className="gap-3">
+                        <item.icon className="h-4 w-4" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        <SidebarGroup>
-          {!collapsed && <SidebarGroupLabel>Operations</SidebarGroupLabel>}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {operationsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink to={item.url} className="gap-3">
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {operationsItems.length > 0 && (
+          <SidebarGroup>
+            {!collapsed && <SidebarGroupLabel>Operations</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {operationsItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                      <NavLink to={item.url} className="gap-3">
+                        <item.icon className="h-4 w-4" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        <SidebarGroup>
-          {!collapsed && <SidebarGroupLabel>Settings</SidebarGroupLabel>}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {settingsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink to={item.url} className="gap-3">
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {settingsItems.length > 0 && (
+          <SidebarGroup>
+            {!collapsed && <SidebarGroupLabel>Settings</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {settingsItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                      <NavLink to={item.url} className="gap-3">
+                        <item.icon className="h-4 w-4" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>

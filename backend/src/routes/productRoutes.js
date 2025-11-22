@@ -1,7 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const productController = require('../controllers/productController');
-const { auth } = require('../middleware/auth');
+const { auth, checkRole } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 
 const router = express.Router();
@@ -20,8 +20,8 @@ const productValidation = [
 router.get('/', auth, productController.getAll);
 router.get('/categories', auth, productController.getCategories);
 router.get('/:id', auth, productController.getOne);
-router.post('/', auth, productValidation, validate, productController.create);
-router.put('/:id', auth, productValidation, validate, productController.update);
-router.delete('/:id', auth, productController.delete);
+router.post('/', auth, checkRole('Inventory Manager', 'Admin'), productValidation, validate, productController.create);
+router.put('/:id', auth, checkRole('Inventory Manager', 'Admin'), productValidation, validate, productController.update);
+router.delete('/:id', auth, checkRole('Inventory Manager', 'Admin'), productController.delete);
 
 module.exports = router;

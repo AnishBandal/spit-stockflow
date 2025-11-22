@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { locationService } from '@/lib/locationService';
 import { warehouseService } from '@/lib/warehouseService';
 import { toast } from '@/hooks/use-toast';
+import { permissions, getCurrentUser } from '@/lib/permissions';
 
 export default function Locations() {
   const [locations, setLocations] = useState<any[]>([]);
@@ -78,13 +79,14 @@ export default function Locations() {
             This holds the multiple locations of warehouses, rooms, etc.
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Location
-            </Button>
-          </DialogTrigger>
+        {permissions.canCreateLocation(getCurrentUser()?.role || 'Warehouse Staff') && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                New Location
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>New Location</DialogTitle>
@@ -126,6 +128,7 @@ export default function Locations() {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card className="p-6">

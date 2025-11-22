@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { productService, type Product } from '@/lib/productService';
 import { toast } from '@/hooks/use-toast';
+import { permissions, getCurrentUser } from '@/lib/permissions';
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -108,13 +109,14 @@ export default function Products() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Products</h2>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Product
-            </Button>
-          </DialogTrigger>
+        {permissions.canCreateProduct(getCurrentUser()?.role || 'Warehouse Staff') && (
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                New Product
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>{editingProduct ? 'Edit Product' : 'New Product'}</DialogTitle>
@@ -168,6 +170,7 @@ export default function Products() {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card className="p-6">
@@ -240,9 +243,11 @@ export default function Products() {
                     </td>
                     <td>
                       <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(product)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        {permissions.canUpdateProduct(getCurrentUser()?.role || 'Warehouse Staff') && (
+                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(product)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>

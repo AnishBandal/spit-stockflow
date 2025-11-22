@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { warehouseService } from '@/lib/warehouseService';
 import { toast } from '@/hooks/use-toast';
+import { permissions, getCurrentUser } from '@/lib/permissions';
 
 export default function Warehouses() {
   const [warehouses, setWarehouses] = useState<any[]>([]);
@@ -72,13 +73,14 @@ export default function Warehouses() {
             This page contains the warehouse details & location
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Warehouse
-            </Button>
-          </DialogTrigger>
+        {permissions.canCreateWarehouse(getCurrentUser()?.role || 'Warehouse Staff') && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                New Warehouse
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>New Warehouse</DialogTitle>
@@ -115,6 +117,7 @@ export default function Warehouses() {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card className="p-6">

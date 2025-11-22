@@ -1,22 +1,46 @@
-import { useState } from 'react';
-import { Search, List, LayoutGrid } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, List, LayoutGrid, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { StatusPill } from '@/components/StatusPill';
-import { mockOperations } from '@/lib/mockData';
+import { operationService } from '@/lib/operationService';
+import { toast } from '@/hooks/use-toast';
 
 export default function MoveHistory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const [operations, setOperations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredOperations = mockOperations.filter(op => {
-    const matchesType = typeFilter === 'all' || op.type === typeFilter;
+  useEffect(() => {
+    loadOperations();
+  }, [typeFilter]);
+
+  const loadOperations = async () => {
+    try {
+      setLoading(true);
+      const data = await operationService.getAll(
+        typeFilter !== 'all' ? { type: typeFilter } : {}
+      );
+      setOperations(data);
+    } catch (error: any) {
+      toast({
+        title: 'Failed to load operations history',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredOperations = operations.filter(op => {
     const matchesSearch = op.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (op.contact?.toLowerCase() || '').includes(searchTerm.toLowerCase());
-    return matchesType && matchesSearch;
+    return matchesSearch;
   });
 
   const ViewModeButtons = () => (
@@ -37,6 +61,14 @@ export default function MoveHistory() {
       </Button>
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (viewMode === 'kanban') {
     const statusGroups = {
@@ -63,8 +95,8 @@ export default function MoveHistory() {
                   <Card key={op.id} className="p-4 cursor-pointer hover:shadow-md transition-shadow">
                     <p className="font-medium text-sm mb-2">{op.reference}</p>
                     <p className="text-xs text-muted-foreground mb-1">{op.type}</p>
-                    <p className="text-xs">{op.from} → {op.to}</p>
-                    <p className="text-xs text-muted-foreground mt-2">{new Date(op.scheduleDate).toLocaleDateString()}</p>
+                    <p className="text-xs">{op.from_location || '-'} → {op.to_location || '-'}</p>
+                    <p className="text-xs text-muted-foreground mt-2">{new Date(op.schedule_date).toLocaleDateString()}</p>
                   </Card>
                 ))}
               </div>
@@ -122,17 +154,25 @@ export default function MoveHistory() {
               </tr>
             </thead>
             <tbody>
-              {filteredOperations.map((op) => (
-                <tr key={op.id}>
-                  <td className="font-medium">{op.reference}</td>
-                  <td>{new Date(op.scheduleDate).toLocaleDateString()}</td>
-                  <td>{op.type}</td>
-                  <td>{op.contact || '-'}</td>
-                  <td>{op.from}</td>
-                  <td>{op.to}</td>
-                  <td><StatusPill status={op.status} /></td>
+              {filteredOperations.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No move history available
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                filteredOperations.map((op) => (
+                  <tr key={op.id}>
+                    <td className="font-medium">{op.reference}</td>
+                    <td>{new Date(op.schedule_date).toLocaleDateString()}</td>
+                    <td>{op.type}</td>
+                    <td>{op.contact || '-'}</td>
+                    <td>{op.from_location || '-'}</td>
+                    <td>{op.to_location || '-'}</td>
+                    <td><StatusPill status={op.status} /></td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

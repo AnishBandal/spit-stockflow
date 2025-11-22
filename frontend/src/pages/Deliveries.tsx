@@ -1,11 +1,14 @@
-import { useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusPill } from '@/components/StatusPill';
-import { mockOperations } from '@/lib/mockData';
+import { operationService, Operation, OperationItem } from '@/lib/operationService';
+import { locationService } from '@/lib/locationService';
+import { productService } from '@/lib/productService';
+import { toast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
@@ -25,59 +28,52 @@ import {
 type DeliveryStatus = 'Draft' | 'Waiting' | 'Ready' | 'Done';
 
 export default function DeliveryOrders() {
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | DeliveryStatus>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isNewOpen, setIsNewOpen] = useState(false);
-
-  // ⬇️ KEEP existing mock data + ADD 2 demo rows
-  const [deliveries, setDeliveries] = useState(() => {
-    const base = mockOperations.filter(
-      (op) => op.type === 'Delivery' // keep your original rows
-    );
-
-    // add two extra demo rows so all tabs show data
-    const extra: Array<{
-      id: string;
-      type: 'Delivery Order';
-      reference: string;
-      from: string;
-      to: string;
-      contact: string;
-      scheduleDate: string;
-      status: DeliveryStatus;
-    }> = [
-      {
-        id: 'demo-delivery-3',
-        type: 'Delivery Order',
-        reference: 'WH/OUT/0003',
-        from: 'WH/Stock1',
-        to: 'Customer XYZ',
-        contact: 'Customer XYZ',
-        scheduleDate: '2025-11-25',
-        status: 'Draft',
-      },
-      {
-        id: 'demo-delivery-4',
-        type: 'Delivery Order',
-        reference: 'WH/OUT/0004',
-        from: 'WH/Stock2',
-        to: 'Office Supplies Hub',
-        contact: 'Office Supplies Hub',
-        scheduleDate: '2025-11-26',
-        status: 'Done',
-      },
-    ];
-
-    return [...base, ...extra];
-  });
+  const [loading, setLoading] = useState(true);
+  const [deliveries, setDeliveries] = useState<Operation[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
 
   // form state
-  const [reference, setReference] = useState('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [fromLocation, setFromLocation] = useState('');
+  const [toLocation, setToLocation] = useState('');
   const [contact, setContact] = useState('');
   const [scheduleDate, setScheduleDate] = useState('');
   const [status, setStatus] = useState<DeliveryStatus>('Draft');
+  const [items, setItems] = useState<OperationItem[]>([]);
+
+  // Item form state
+  const [selectedProduct, setSelectedProduct] = useState('');
+  const [itemQuantity, setItemQuantity] = useState<number>(1);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [operations, locationData, productData] = await Promise.all([
+        operationService.getAll({ type: 'Delivery' }),
+        locationService.getAll(),
+        productService.getAll()
+      ]);
+      
+      setDeliveries(operations || []);
+      setLocations(locationData || []);
+      setProducts(productData || []);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to load deliveries',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredDeliveries = deliveries.filter((d) => {
     const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
@@ -88,36 +84,92 @@ export default function DeliveryOrders() {
   });
 
   const openNewDialog = () => {
-    // next number based on how many rows (including hardcoded)
-    const nextNumber = deliveries.length + 1;
-    const nextRef = `WH/OUT/${String(nextNumber).padStart(4, '0')}`;
-
-    setReference(nextRef);
-    setFrom('');
-    setTo('');
+    setFromLocation('');
+    setToLocation('');
     setContact('');
     setScheduleDate('');
     setStatus('Draft');
+    setItems([]);
+    setSelectedProduct('');
+    setItemQuantity(1);
     setIsNewOpen(true);
   };
 
-  const handleCreateDelivery = (e: React.FormEvent) => {
-    e.preventDefault();
+  const addItem = () => {
+    if (!selectedProduct) {
+      toast({
+        title: 'Error',
+        description: 'Please select a product',
+        variant: 'destructive'
+      });
+      return;
+    }
 
-    const newDelivery = {
-      id: `delivery-${Date.now()}`,
-      type: 'Delivery Order' as const,
-      reference,
-      from,
-      to,
-      contact,
-      scheduleDate: scheduleDate || new Date().toISOString(),
-      status,
+    const product = products.find(p => p.id.toString() === selectedProduct);
+    if (!product) return;
+
+    const newItem: OperationItem = {
+      product_id: selectedProduct,
+      product_name: product.name,
+      sku: product.sku,
+      quantity: itemQuantity
     };
 
-    setDeliveries((prev) => [...prev, newDelivery]);
-    setIsNewOpen(false);
+    setItems([...items, newItem]);
+    setSelectedProduct('');
+    setItemQuantity(1);
   };
+
+  const removeItem = (index: number) => {
+    setItems(items.filter((_, i) => i !== index));
+  };
+
+  const handleCreateDelivery = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (items.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'Please add at least one item',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      await operationService.create({
+        type: 'Delivery',
+        from_location: fromLocation,
+        to_location: toLocation,
+        contact,
+        schedule_date: scheduleDate || new Date().toISOString().split('T')[0],
+        status,
+        items
+      });
+
+      toast({
+        title: 'Success',
+        description: 'Delivery created successfully'
+      });
+
+      setIsNewOpen(false);
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to create delivery',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -135,7 +187,7 @@ export default function DeliveryOrders() {
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <Tabs
             value={statusFilter}
-            onValueChange={setStatusFilter}
+            onValueChange={(v) => setStatusFilter(v as 'all' | DeliveryStatus)}
             className="w-full sm:w-auto"
           >
             <TabsList>
@@ -165,26 +217,36 @@ export default function DeliveryOrders() {
                 <th>Reference</th>
                 <th>From</th>
                 <th>To</th>
+                <th>Items</th>
                 <th>Contact</th>
                 <th>Schedule Date</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {filteredDeliveries.map((delivery) => (
-                <tr key={delivery.id} className="cursor-pointer">
-                  <td className="font-medium">{delivery.reference}</td>
-                  <td>{delivery.from}</td>
-                  <td>{delivery.to}</td>
-                  <td>{delivery.contact}</td>
-                  <td>
-                    {new Date(delivery.scheduleDate).toLocaleDateString()}
-                  </td>
-                  <td>
-                    <StatusPill status={delivery.status} />
+              {filteredDeliveries.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center text-muted-foreground py-8">
+                    No deliveries found
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredDeliveries.map((delivery) => (
+                  <tr key={delivery.id} className="cursor-pointer">
+                    <td className="font-medium">{delivery.reference}</td>
+                    <td>{delivery.from_location}</td>
+                    <td>{delivery.to_location}</td>
+                    <td>{delivery.items?.length || 0} items</td>
+                    <td>{delivery.contact || '-'}</td>
+                    <td>
+                      {new Date(delivery.schedule_date).toLocaleDateString()}
+                    </td>
+                    <td>
+                      <StatusPill status={delivery.status} />
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -192,62 +254,61 @@ export default function DeliveryOrders() {
 
       {/* NEW dialog */}
       <Dialog open={isNewOpen} onOpenChange={setIsNewOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>New Delivery Order</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleCreateDelivery} className="space-y-4 mt-2">
-            <div className="space-y-2">
-              <Label htmlFor="reference">Reference</Label>
-              <Input
-                id="reference"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                readOnly
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="from">From Location</Label>
+                <Select value={fromLocation} onValueChange={setFromLocation} required>
+                  <SelectTrigger id="from">
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.map((loc) => (
+                      <SelectItem key={loc.id} value={loc.name}>
+                        {loc.name} ({loc.warehouse_name})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="to">To (Customer/Destination)</Label>
+                <Input
+                  id="to"
+                  value={toLocation}
+                  onChange={(e) => setToLocation(e.target.value)}
+                  placeholder="Customer name or address"
+                  required
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="from">From</Label>
-              <Input
-                id="from"
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-                placeholder="Source warehouse"
-                required
-              />
-            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="contact">Contact</Label>
+                <Input
+                  id="contact"
+                  value={contact}
+                  onChange={(e) => setContact(e.target.value)}
+                  placeholder="Contact person (optional)"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="to">To</Label>
-              <Input
-                id="to"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                placeholder="Customer / destination"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="contact">Contact</Label>
-              <Input
-                id="contact"
-                value={contact}
-                onChange={(e) => setContact(e.target.value)}
-                placeholder="Contact name"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="scheduleDate">Schedule Date</Label>
-              <Input
-                id="scheduleDate"
-                type="date"
-                value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-              />
+              <div className="space-y-2">
+                <Label htmlFor="scheduleDate">Schedule Date</Label>
+                <Input
+                  id="scheduleDate"
+                  type="date"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -268,6 +329,67 @@ export default function DeliveryOrders() {
               </Select>
             </div>
 
+            {/* Items Section */}
+            <div className="border-t pt-4">
+              <Label className="text-lg font-semibold">Items</Label>
+              
+              {/* Add Item Form */}
+              <div className="grid grid-cols-12 gap-2 mt-4">
+                <div className="col-span-7">
+                  <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products.map((prod) => (
+                        <SelectItem key={prod.id} value={prod.id.toString()}>
+                          {prod.name} ({prod.sku})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-3">
+                  <Input
+                    type="number"
+                    min="1"
+                    value={itemQuantity}
+                    onChange={(e) => setItemQuantity(Number(e.target.value))}
+                    placeholder="Qty"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Button type="button" onClick={addItem} className="w-full">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Items List */}
+              {items.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {items.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                      <div className="flex-1">
+                        <div className="font-medium">{item.product_name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          SKU: {item.sku} • Quantity: {item.quantity}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeItem(index)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <DialogFooter className="mt-4">
               <Button
                 type="button"
@@ -276,7 +398,9 @@ export default function DeliveryOrders() {
               >
                 Cancel
               </Button>
-              <Button type="submit">Create Delivery Order</Button>
+              <Button type="submit" disabled={items.length === 0}>
+                Create Delivery ({items.length} items)
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

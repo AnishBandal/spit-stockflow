@@ -112,10 +112,20 @@ export default function Login() {
           </div>
 
           <Card className="mt-6 p-4 bg-muted/30">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Demo Account</p>
-            <div className="space-y-1 text-sm">
-              <p><span className="font-medium">Email:</span> demo.manager@stockmaster.test</p>
-              <p><span className="font-medium">Password:</span> password123</p>
+            <p className="text-xs font-medium text-muted-foreground mb-3">Demo Accounts</p>
+            <div className="space-y-3 text-sm">
+              <div>
+                <p className="font-semibold text-foreground mb-1">Manager Account</p>
+                <p><span className="font-medium">Email:</span> demo.manager@stockmaster.test</p>
+                <p><span className="font-medium">Password:</span> password123</p>
+                <p className="text-xs text-muted-foreground mt-1">Full access to all features</p>
+              </div>
+              <div className="border-t pt-3">
+                <p className="font-semibold text-foreground mb-1">Staff Account</p>
+                <p><span className="font-medium">Email:</span> staff@stockmaster.test</p>
+                <p><span className="font-medium">Password:</span> password123</p>
+                <p className="text-xs text-muted-foreground mt-1">Operations, transfers, and stock updates</p>
+              </div>
             </div>
           </Card>
         </Card>

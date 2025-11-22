@@ -1,10 +1,13 @@
-import { useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { StatusPill } from '@/components/StatusPill';
-import { mockOperations } from '@/lib/mockData';
+import { operationService, Operation } from '@/lib/operationService';
+import { locationService } from '@/lib/locationService';
+import { productService } from '@/lib/productService';
+import { toast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
@@ -23,85 +26,49 @@ import {
 
 type AdjustmentStatus = 'Draft' | 'Done';
 
-type Adjustment = {
-  id: string;
-  type: 'Adjustment';
-  reference: string;
-  product: string;
-  location: string;
-  quantityChange: number;
-  date: string;
-  responsible: string;
-  status: AdjustmentStatus;
-};
-
 export default function StockAdjustments() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isNewOpen, setIsNewOpen] = useState(false);
-
-  // keep existing mock + add 3 demo rows, all coerced to Adjustment type
-  const [adjustments, setAdjustments] = useState<Adjustment[]>(() => {
-    const base: Adjustment[] = mockOperations
-      .filter((op) => op.type === 'Adjustment')
-      .map((op: any) => ({
-        id: op.id,
-        type: 'Adjustment',
-        reference: op.reference,
-        product: op.product,
-        location: op.location,
-        quantityChange: op.quantityChange,
-        date: op.date,
-        responsible: op.responsible,
-        status: op.status as AdjustmentStatus,
-      }));
-
-    const extra: Adjustment[] = [
-      {
-        id: 'demo-adj-2',
-        type: 'Adjustment',
-        reference: 'WH/ADJ/0002',
-        product: 'Office Chair',
-        location: 'WH/Stock2',
-        quantityChange: 5,
-        date: '2025-11-22',
-        responsible: 'Warehouse Staff',
-        status: 'Draft',
-      },
-      {
-        id: 'demo-adj-3',
-        type: 'Adjustment',
-        reference: 'WH/ADJ/0003',
-        product: 'LED Monitor',
-        location: 'WH/Stock1',
-        quantityChange: -2,
-        date: '2025-11-23',
-        responsible: 'Inventory Manager',
-        status: 'Done',
-      },
-      {
-        id: 'demo-adj-4',
-        type: 'Adjustment',
-        reference: 'WH/ADJ/0004',
-        product: 'Keyboard',
-        location: 'WH/Stock3',
-        quantityChange: 10,
-        date: '2025-11-24',
-        responsible: 'John Manager',
-        status: 'Draft',
-      },
-    ];
-
-    return [...base, ...extra];
-  });
+  const [loading, setLoading] = useState(true);
+  const [adjustments, setAdjustments] = useState<Operation[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
 
   // form state
   const [reference, setReference] = useState('');
-  const [product, setProduct] = useState('');
-  const [location, setLocation] = useState('');
+  const [productId, setProductId] = useState('');
+  const [locationId, setLocationId] = useState('');
   const [quantityChange, setQuantityChange] = useState<number | ''>('');
-  const [date, setDate] = useState('');
+  const [scheduleDate, setScheduleDate] = useState('');
   const [responsible, setResponsible] = useState('');
   const [status, setStatus] = useState<AdjustmentStatus>('Draft');
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [operations, products, locations] = await Promise.all([
+        operationService.getAll({ type: 'Adjustment' }),
+        productService.getAll(),
+        locationService.getAll()
+      ]);
+      
+      setAdjustments(operations || []);
+      setProducts(products || []);
+      setLocations(locations || []);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to load adjustments',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredAdjustments = adjustments.filter((a) =>
     a.reference.toLowerCase().includes(searchTerm.toLowerCase())
@@ -110,33 +77,50 @@ export default function StockAdjustments() {
   const openNewDialog = () => {
     const nextNumber = adjustments.length + 1;
     setReference(`WH/ADJ/${String(nextNumber).padStart(4, '0')}`);
-    setProduct('');
-    setLocation('');
+    setProductId('');
+    setLocationId('');
     setQuantityChange('');
-    setDate('');
+    setScheduleDate('');
     setResponsible('');
     setStatus('Draft');
     setIsNewOpen(true);
   };
 
-  const handleCreateAdjustment = (e: React.FormEvent) => {
+  const handleCreateAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const newAdj: Adjustment = {
-      id: `adj-${Date.now()}`,
-      type: 'Adjustment',
-      reference,
-      product,
-      location,
-      quantityChange: typeof quantityChange === 'string' ? 0 : quantityChange,
-      date: date || new Date().toISOString(),
-      responsible,
-      status,
-    };
+    try {
+      await operationService.create({
+        type: 'Adjustment',
+        from_location: '',
+        to_location: '',
+        schedule_date: scheduleDate || new Date().toISOString().split('T')[0],
+        status,
+      });
 
-    setAdjustments((prev) => [...prev, newAdj]);
-    setIsNewOpen(false);
+      toast({
+        title: 'Success',
+        description: 'Adjustment created successfully'
+      });
+
+      setIsNewOpen(false);
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to create adjustment',
+        variant: 'destructive'
+      });
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -176,25 +160,33 @@ export default function StockAdjustments() {
               </tr>
             </thead>
             <tbody>
-              {filteredAdjustments.map((a) => (
-                <tr key={a.id}>
-                  <td className="font-medium">{a.reference}</td>
-                  <td>{a.product}</td>
-                  <td>{a.location}</td>
-                  <td
-                    className={
-                      a.quantityChange < 0 ? 'text-red-500' : 'text-emerald-600'
-                    }
-                  >
-                    {a.quantityChange}
-                  </td>
-                  <td>{new Date(a.date).toLocaleDateString()}</td>
-                  <td>{a.responsible}</td>
-                  <td>
-                    <StatusPill status={a.status} />
+              {filteredAdjustments.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center text-muted-foreground py-8">
+                    No adjustments found
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredAdjustments.map((a) => (
+                  <tr key={a.id}>
+                    <td className="font-medium">{a.reference}</td>
+                    <td>{a.items?.[0]?.product_name || '-'}</td>
+                    <td>{a.from_location || a.to_location || '-'}</td>
+                    <td
+                      className={
+                        (a.items?.[0]?.quantity || 0) < 0 ? 'text-red-500' : 'text-emerald-600'
+                      }
+                    >
+                      {a.items?.[0]?.quantity || 0}
+                    </td>
+                    <td>{new Date(a.schedule_date).toLocaleDateString()}</td>
+                    <td>{a.responsible_name || '-'}</td>
+                    <td>
+                      <StatusPill status={a.status} />
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -215,20 +207,34 @@ export default function StockAdjustments() {
 
             <div className="space-y-2">
               <Label>Product</Label>
-              <Input
-                value={product}
-                onChange={(e) => setProduct(e.target.value)}
-                required
-              />
+              <Select value={productId} onValueChange={setProductId} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select product" />
+                </SelectTrigger>
+                <SelectContent>
+                  {products.map((prod) => (
+                    <SelectItem key={prod.id} value={prod.id.toString()}>
+                      {prod.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
               <Label>Location</Label>
-              <Input
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                required
-              />
+              <Select value={locationId} onValueChange={setLocationId} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id.toString()}>
+                      {loc.name} ({loc.warehouse_name})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -241,6 +247,7 @@ export default function StockAdjustments() {
                     e.target.value === '' ? '' : Number(e.target.value)
                   )
                 }
+                placeholder="Use negative for decrease"
                 required
               />
             </div>
@@ -249,8 +256,8 @@ export default function StockAdjustments() {
               <Label>Date</Label>
               <Input
                 type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
               />
             </div>
 
@@ -259,6 +266,7 @@ export default function StockAdjustments() {
               <Input
                 value={responsible}
                 onChange={(e) => setResponsible(e.target.value)}
+                placeholder="Optional"
               />
             </div>
 
@@ -282,7 +290,7 @@ export default function StockAdjustments() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setIsNewOpen(false)} //button toggled
+                onClick={() => setIsNewOpen(false)}
               >
                 Cancel
               </Button>

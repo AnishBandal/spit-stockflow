@@ -1,7 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const warehouseController = require('../controllers/warehouseController');
-const { auth } = require('../middleware/auth');
+const { auth, checkRole } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 
 const router = express.Router();
@@ -16,8 +16,8 @@ const warehouseValidation = [
 // Routes
 router.get('/', auth, warehouseController.getAll);
 router.get('/:id', auth, warehouseController.getOne);
-router.post('/', auth, warehouseValidation, validate, warehouseController.create);
-router.put('/:id', auth, warehouseValidation, validate, warehouseController.update);
-router.delete('/:id', auth, warehouseController.delete);
+router.post('/', auth, checkRole('Inventory Manager', 'Admin'), warehouseValidation, validate, warehouseController.create);
+router.put('/:id', auth, checkRole('Inventory Manager', 'Admin'), warehouseValidation, validate, warehouseController.update);
+router.delete('/:id', auth, checkRole('Inventory Manager', 'Admin'), warehouseController.delete);
 
 module.exports = router;

@@ -5,7 +5,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { authService } from './lib/auth';
+import { permissions } from './lib/permissions';
 import { AppLayout } from './components/layout/AppLayout';
+import { ProtectedRoute as RoleProtectedRoute } from './components/ProtectedRoute';
 
 // Auth pages
 import Login from './pages/Login';
@@ -63,15 +65,19 @@ const App = () => {
 
             {/* Protected Routes */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+            
+            {/* Manager/Admin Only Routes */}
+            <Route path="/products" element={<ProtectedRoute><RoleProtectedRoute requirePermission={permissions.canViewProducts}><Products /></RoleProtectedRoute></ProtectedRoute>} />
+            <Route path="/receipts" element={<ProtectedRoute><RoleProtectedRoute requirePermission={(role) => ['Inventory Manager', 'Admin'].includes(role)}><Receipts /></RoleProtectedRoute></ProtectedRoute>} />
+            <Route path="/deliveries" element={<ProtectedRoute><RoleProtectedRoute requirePermission={(role) => ['Inventory Manager', 'Admin'].includes(role)}><Deliveries /></RoleProtectedRoute></ProtectedRoute>} />
+            <Route path="/move-history" element={<ProtectedRoute><RoleProtectedRoute requirePermission={(role) => ['Inventory Manager', 'Admin'].includes(role)}><MoveHistory /></RoleProtectedRoute></ProtectedRoute>} />
+            <Route path="/warehouses" element={<ProtectedRoute><RoleProtectedRoute requirePermission={(role) => ['Inventory Manager', 'Admin'].includes(role)}><Warehouses /></RoleProtectedRoute></ProtectedRoute>} />
+            <Route path="/locations" element={<ProtectedRoute><RoleProtectedRoute requirePermission={(role) => ['Inventory Manager', 'Admin'].includes(role)}><Locations /></RoleProtectedRoute></ProtectedRoute>} />
+            
+            {/* All Roles Routes */}
             <Route path="/stock" element={<ProtectedRoute><Stock /></ProtectedRoute>} />
-            <Route path="/receipts" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
-            <Route path="/deliveries" element={<ProtectedRoute><Deliveries /></ProtectedRoute>} />
             <Route path="/transfers" element={<ProtectedRoute><Transfers /></ProtectedRoute>} />
             <Route path="/adjustments" element={<ProtectedRoute><Adjustments /></ProtectedRoute>} />
-            <Route path="/move-history" element={<ProtectedRoute><MoveHistory /></ProtectedRoute>} />
-            <Route path="/warehouses" element={<ProtectedRoute><Warehouses /></ProtectedRoute>} />
-            <Route path="/locations" element={<ProtectedRoute><Locations /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
             {/* Root redirect */}
