@@ -57,27 +57,29 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-8 items-center">
-        <div className="hidden lg:block">
-          <div className="text-center space-y-4">
-            <Package className="h-24 w-24 text-primary mx-auto" />
-            <h2 className="text-3xl font-bold text-foreground">Join StockMaster</h2>
-            <p className="text-muted-foreground">
-              Start managing your inventory professionally
-            </p>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="w-full max-w-md space-y-8">
+        
+        {/* Top brand block */}
+        <div className="text-center space-y-3">
+          <Package className="h-16 w-16 mx-auto text-primary" />
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
+            Join StockMaster
+          </h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Start managing your inventory professionally
+          </p>
         </div>
 
-        <Card className="p-8">
-          <div className="mb-6 lg:hidden text-center">
-            <Package className="h-12 w-12 text-primary mx-auto mb-2" />
-            <h2 className="text-2xl font-bold">StockMaster</h2>
-          </div>
-
-          <h1 className="text-2xl font-semibold mb-6">Create your account</h1>
+        {/* Signup card */}
+        <Card className="p-8 shadow-sm">
+          <h2 className="text-xl md:text-2xl font-semibold mb-6 text-center">
+            Create your account
+          </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* Full Name */}
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
               <Input
@@ -90,6 +92,7 @@ export default function Signup() {
               />
             </div>
 
+            {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -102,11 +105,12 @@ export default function Signup() {
               />
             </div>
 
+            {/* Role */}
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
               <Select value={role} onValueChange={(v) => setRole(v as any)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Warehouse Staff">Warehouse Staff</SelectItem>
@@ -115,6 +119,7 @@ export default function Signup() {
               </Select>
             </div>
 
+            {/* Password */}
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
@@ -136,6 +141,7 @@ export default function Signup() {
               </div>
             </div>
 
+            {/* Password Requirements */}
             {password && (
               <div className="text-xs space-y-1 p-3 bg-muted/30 rounded-md">
                 <PasswordCheck met={passwordChecks.length}>At least 8 characters</PasswordCheck>
@@ -146,6 +152,7 @@ export default function Signup() {
               </div>
             )}
 
+            {/* Confirm Password */}
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
               <Input
@@ -164,6 +171,7 @@ export default function Signup() {
               )}
             </div>
 
+            {/* Submit Button */}
             <Button type="submit" className="w-full" disabled={loading || !allChecksPassed || !passwordsMatch}>
               {loading ? 'Creating account...' : 'Create Account'}
             </Button>

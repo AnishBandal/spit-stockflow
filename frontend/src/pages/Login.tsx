@@ -25,10 +25,10 @@ export default function Login() {
       toast({ title: 'Welcome back!', description: 'Login successful' });
       navigate('/dashboard');
     } else {
-      toast({ 
-        title: 'Login failed', 
+      toast({
+        title: 'Login failed',
         description: result.error,
-        variant: 'destructive' 
+        variant: 'destructive',
       });
     }
 
@@ -36,25 +36,24 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-8 items-center">
-        <div className="hidden lg:block">
-          <div className="text-center space-y-4">
-            <Package className="h-24 w-24 text-primary mx-auto" />
-            <h2 className="text-3xl font-bold text-foreground">StockMaster</h2>
-            <p className="text-muted-foreground">
-              Professional inventory management for modern warehouses
-            </p>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="w-full max-w-md space-y-8">
+        {/* Top brand block */}
+        <div className="text-center space-y-3">
+          <Package className="h-16 w-16 mx-auto text-primary" />
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
+            StockMaster
+          </h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Professional inventory management for modern warehouses
+          </p>
         </div>
 
-        <Card className="p-8">
-          <div className="mb-6 lg:hidden text-center">
-            <Package className="h-12 w-12 text-primary mx-auto mb-2" />
-            <h2 className="text-2xl font-bold">StockMaster</h2>
-          </div>
-
-          <h1 className="text-2xl font-semibold mb-6">Login to your account</h1>
+        {/* Login card below logo */}
+        <Card className="p-8 shadow-sm">
+          <h2 className="text-xl md:text-2xl font-semibold mb-6 text-center">
+            Login to your account
+          </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -85,12 +84,16 @@ export default function Login() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-end">
               <Link
                 to="/forgot-password"
                 className="text-sm text-primary hover:underline"
@@ -105,17 +108,24 @@ export default function Login() {
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
+            <span className="text-muted-foreground">Don&apos;t have an account? </span>
             <Link to="/signup" className="text-primary hover:underline">
               Create account
             </Link>
           </div>
 
-          <Card className="mt-6 p-4 bg-muted/30">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Demo Account</p>
+          <Card className="mt-6 p-4 bg-muted/40 border-dashed">
+            <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+              Demo Account
+            </p>
             <div className="space-y-1 text-sm">
-              <p><span className="font-medium">Email:</span> demo.manager@stockmaster.test</p>
-              <p><span className="font-medium">Password:</span> password123</p>
+              <p>
+                <span className="font-medium">Email:</span>{' '}
+                demo.manager@stockmaster.test
+              </p>
+              <p>
+                <span className="font-medium">Password:</span> password123
+              </p>
             </div>
           </Card>
         </Card>
