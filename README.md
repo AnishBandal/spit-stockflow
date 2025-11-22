@@ -14,6 +14,11 @@ StockMaster digitizes and automates all inventory-related operations, providing:
 - **Inventory Managers** - Oversee all stock operations and management
 - **Warehouse Staff** - Execute daily operations like picking, packing, and transfers
 
+  
+## Demo Video Link
+
+https://drive.google.com/file/d/1G-EU1RKJKLNpsuUqNmYnsqhS1i7xmhT6/view?usp=sharing
+
 ## 🚀 Core Features
 
 ### 🔐 Authentication & Security
