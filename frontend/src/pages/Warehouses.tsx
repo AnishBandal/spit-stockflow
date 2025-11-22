@@ -1,33 +1,67 @@
-import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { mockWarehouses, Warehouse } from '@/lib/mockData';
+import { warehouseService } from '@/lib/warehouseService';
 import { toast } from '@/hooks/use-toast';
 
 export default function Warehouses() {
-  const [warehouses, setWarehouses] = useState(mockWarehouses);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    shortCode: '',
+    code: '',
     address: '',
   });
 
-  const handleSave = () => {
-    const newWarehouse: Warehouse = {
-      id: `wh${warehouses.length + 1}`,
-      ...formData,
-    };
-    setWarehouses([...warehouses, newWarehouse]);
-    toast({ title: 'Warehouse created successfully' });
-    setDialogOpen(false);
-    setFormData({ name: '', shortCode: '', address: '' });
+  useEffect(() => {
+    loadWarehouses();
+  }, []);
+
+  const loadWarehouses = async () => {
+    try {
+      setLoading(true);
+      const data = await warehouseService.getAll();
+      setWarehouses(data);
+    } catch (error: any) {
+      toast({
+        title: 'Failed to load warehouses',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleSave = async () => {
+    try {
+      await warehouseService.create(formData);
+      toast({ title: 'Warehouse created successfully' });
+      setDialogOpen(false);
+      setFormData({ name: '', code: '', address: '' });
+      loadWarehouses();
+    } catch (error: any) {
+      toast({
+        title: 'Failed to create warehouse',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -61,8 +95,8 @@ export default function Warehouses() {
               <div className="space-y-2">
                 <Label>Short Code</Label>
                 <Input
-                  value={formData.shortCode}
-                  onChange={(e) => setFormData({ ...formData, shortCode: e.target.value })}
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                   placeholder="WH"
                 />
               </div>
@@ -97,7 +131,7 @@ export default function Warehouses() {
               {warehouses.map((warehouse) => (
                 <tr key={warehouse.id}>
                   <td className="font-medium">{warehouse.name}</td>
-                  <td>{warehouse.shortCode}</td>
+                  <td>{warehouse.code}</td>
                   <td>{warehouse.address}</td>
                 </tr>
               ))}

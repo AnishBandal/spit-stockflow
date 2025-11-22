@@ -1,37 +1,73 @@
-import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockLocations, mockWarehouses, Location } from '@/lib/mockData';
+import { locationService } from '@/lib/locationService';
+import { warehouseService } from '@/lib/warehouseService';
 import { toast } from '@/hooks/use-toast';
 
 export default function Locations() {
-  const [locations, setLocations] = useState(mockLocations);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    shortCode: '',
-    warehouseId: '',
+    code: '',
+    warehouse_id: '',
   });
 
-  const getWarehouseName = (warehouseId: string) => {
-    return mockWarehouses.find(w => w.id === warehouseId)?.name || warehouseId;
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [locationsData, warehousesData] = await Promise.all([
+        locationService.getAll(),
+        warehouseService.getAll()
+      ]);
+      setLocations(locationsData);
+      setWarehouses(warehousesData);
+    } catch (error: any) {
+      toast({
+        title: 'Failed to load locations',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSave = () => {
-    const newLocation: Location = {
-      id: `loc${locations.length + 1}`,
-      ...formData,
-    };
-    setLocations([...locations, newLocation]);
-    toast({ title: 'Location created successfully' });
-    setDialogOpen(false);
-    setFormData({ name: '', shortCode: '', warehouseId: '' });
+  const handleSave = async () => {
+    try {
+      await locationService.create(formData);
+      toast({ title: 'Location created successfully' });
+      setDialogOpen(false);
+      setFormData({ name: '', code: '', warehouse_id: '' });
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: 'Failed to create location',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -65,20 +101,20 @@ export default function Locations() {
               <div className="space-y-2">
                 <Label>Short Code</Label>
                 <Input
-                  value={formData.shortCode}
-                  onChange={(e) => setFormData({ ...formData, shortCode: e.target.value })}
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                   placeholder="Stock1"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Warehouse</Label>
-                <Select value={formData.warehouseId} onValueChange={(v) => setFormData({ ...formData, warehouseId: v })}>
+                <Select value={formData.warehouse_id} onValueChange={(v) => setFormData({ ...formData, warehouse_id: v })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select warehouse" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockWarehouses.map(wh => (
-                      <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>
+                    {warehouses.map(wh => (
+                      <SelectItem key={wh.id} value={wh.id.toString()}>{wh.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -106,8 +142,8 @@ export default function Locations() {
               {locations.map((location) => (
                 <tr key={location.id}>
                   <td className="font-medium">{location.name}</td>
-                  <td>{location.shortCode}</td>
-                  <td>{getWarehouseName(location.warehouseId)}</td>
+                  <td>{location.code}</td>
+                  <td>{location.warehouse_name || location.warehouse_id}</td>
                 </tr>
               ))}
             </tbody>

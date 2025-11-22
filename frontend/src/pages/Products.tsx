@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Search, Edit, Eye } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -7,50 +7,76 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { mockProducts, Product } from '@/lib/mockData';
+import { productService, type Product } from '@/lib/productService';
 import { toast } from '@/hooks/use-toast';
 
 export default function Products() {
-  const [products, setProducts] = useState(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
     category: '',
-    unitOfMeasure: 'Unit',
-    totalStock: 0,
-    reorderLevel: 0,
+    unit_of_measure: 'Unit',
+    reorder_level: 0,
     description: '',
   });
 
-  const categories = ['All', ...Array.from(new Set(products.map(p => p.category)))];
+  useEffect(() => {
+    loadProducts();
+    loadCategories();
+  }, []);
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         p.sku.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || p.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  const loadProducts = async () => {
+    setLoading(true);
+    const data = await productService.getAll({
+      category: categoryFilter !== 'all' ? categoryFilter : undefined,
+      search: searchTerm || undefined,
+    });
+    setProducts(data);
+    setLoading(false);
+  };
 
-  const handleSaveProduct = () => {
-    if (editingProduct) {
-      setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...formData } : p));
-      toast({ title: 'Product updated successfully' });
-    } else {
-      const newProduct: Product = {
-        id: `p${products.length + 1}`,
-        ...formData,
-        status: formData.totalStock === 0 ? 'Out of Stock' : formData.totalStock <= formData.reorderLevel ? 'Low' : 'Normal'
-      };
-      setProducts([...products, newProduct]);
-      toast({ title: 'Product created successfully' });
+  const loadCategories = async () => {
+    const cats = await productService.getCategories();
+    setCategories(cats);
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadProducts();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, categoryFilter]);
+
+  const handleSaveProduct = async () => {
+    try {
+      setLoading(true);
+      if (editingProduct) {
+        await productService.update(editingProduct.id, formData);
+        toast({ title: 'Product updated successfully' });
+      } else {
+        await productService.create(formData);
+        toast({ title: 'Product created successfully' });
+      }
+      setDialogOpen(false);
+      resetForm();
+      loadProducts();
+    } catch (error: any) {
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'Failed to save product',
+        variant: 'destructive' 
+      });
+    } finally {
+      setLoading(false);
     }
-    setDialogOpen(false);
-    resetForm();
   };
 
   const resetForm = () => {
@@ -58,9 +84,8 @@ export default function Products() {
       name: '',
       sku: '',
       category: '',
-      unitOfMeasure: 'Unit',
-      totalStock: 0,
-      reorderLevel: 0,
+      unit_of_measure: 'Unit',
+      reorder_level: 0,
       description: '',
     });
     setEditingProduct(null);
@@ -72,10 +97,9 @@ export default function Products() {
       name: product.name,
       sku: product.sku,
       category: product.category,
-      unitOfMeasure: product.unitOfMeasure,
-      totalStock: product.totalStock,
-      reorderLevel: product.reorderLevel,
-      description: '',
+      unit_of_measure: product.unit_of_measure,
+      reorder_level: product.reorder_level,
+      description: product.description || '',
     });
     setDialogOpen(true);
   };
@@ -113,7 +137,7 @@ export default function Products() {
                 </div>
                 <div className="space-y-2">
                   <Label>Unit of Measure</Label>
-                  <Select value={formData.unitOfMeasure} onValueChange={(v) => setFormData({ ...formData, unitOfMeasure: v })}>
+                  <Select value={formData.unit_of_measure} onValueChange={(v) => setFormData({ ...formData, unit_of_measure: v })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -127,15 +151,9 @@ export default function Products() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Initial Stock</Label>
-                  <Input type="number" value={formData.totalStock} onChange={(e) => setFormData({ ...formData, totalStock: parseInt(e.target.value) || 0 })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Reorder Level</Label>
-                  <Input type="number" value={formData.reorderLevel} onChange={(e) => setFormData({ ...formData, reorderLevel: parseInt(e.target.value) || 0 })} />
-                </div>
+              <div className="space-y-2">
+                <Label>Reorder Level</Label>
+                <Input type="number" value={formData.reorder_level} onChange={(e) => setFormData({ ...formData, reorder_level: parseInt(e.target.value) || 0 })} />
               </div>
               <div className="space-y-2">
                 <Label>Description (optional)</Label>
@@ -144,7 +162,9 @@ export default function Products() {
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleSaveProduct}>Save</Button>
+              <Button onClick={handleSaveProduct} disabled={loading}>
+                {loading ? 'Saving...' : 'Save'}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -167,7 +187,7 @@ export default function Products() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              {categories.filter(c => c !== 'All').map(cat => (
+              {categories.map(cat => (
                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
               ))}
             </SelectContent>
@@ -189,31 +209,45 @@ export default function Products() {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((product) => (
-                <tr key={product.id}>
-                  <td className="font-medium">{product.name}</td>
-                  <td>{product.sku}</td>
-                  <td>{product.category}</td>
-                  <td>{product.unitOfMeasure}</td>
-                  <td>{product.totalStock}</td>
-                  <td>{product.reorderLevel}</td>
-                  <td>
-                    <span className={`status-pill ${
-                      product.status === 'Out of Stock' ? 'status-canceled' :
-                      product.status === 'Low' ? 'status-waiting' : 'status-done'
-                    }`}>
-                      {product.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openEditDialog(product)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
+              {loading && products.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-8 text-muted-foreground">
+                    Loading products...
                   </td>
                 </tr>
-              ))}
+              ) : products.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-8 text-muted-foreground">
+                    No products found
+                  </td>
+                </tr>
+              ) : (
+                products.map((product) => (
+                  <tr key={product.id}>
+                    <td className="font-medium">{product.name}</td>
+                    <td>{product.sku}</td>
+                    <td>{product.category}</td>
+                    <td>{product.unit_of_measure}</td>
+                    <td>{product.total_stock}</td>
+                    <td>{product.reorder_level}</td>
+                    <td>
+                      <span className={`status-pill ${
+                        product.status === 'Out of Stock' ? 'status-canceled' :
+                        product.status === 'Low' ? 'status-waiting' : 'status-done'
+                      }`}>
+                        {product.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(product)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

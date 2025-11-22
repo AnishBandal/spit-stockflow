@@ -1,44 +1,76 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockStockLocations, mockProducts, mockWarehouses } from '@/lib/mockData';
+import { stockService } from '@/lib/stockService';
+import { warehouseService } from '@/lib/warehouseService';
 import { toast } from '@/hooks/use-toast';
-import { Edit2, Check, X } from 'lucide-react';
+import { Edit2, Check, X, Loader2 } from 'lucide-react';
 
 export default function Stock() {
-  const [stockData, setStockData] = useState(mockStockLocations);
+  const [stockData, setStockData] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
   const [warehouseFilter, setWarehouseFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
   const [editingRow, setEditingRow] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState({ onHand: 0, freeToUse: 0 });
+  const [editValues, setEditValues] = useState({ quantity: 0, reserved_quantity: 0 });
 
-  const filteredStock = stockData.filter(s => 
-    warehouseFilter === 'all' || s.warehouse === warehouseFilter
-  );
+  useEffect(() => {
+    loadData();
+  }, [warehouseFilter]);
 
-  const getProductName = (productId: string) => {
-    return mockProducts.find(p => p.id === productId)?.name || productId;
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [stockRes, warehousesRes] = await Promise.all([
+        stockService.getAll(warehouseFilter !== 'all' ? { warehouse_id: warehouseFilter } : {}),
+        warehouseService.getAll()
+      ]);
+      setStockData(stockRes);
+      setWarehouses(warehousesRes);
+    } catch (error: any) {
+      toast({
+        title: 'Failed to load stock',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const startEdit = (productId: string, onHand: number, freeToUse: number) => {
-    setEditingRow(productId);
-    setEditValues({ onHand, freeToUse });
+  const startEdit = (stockId: string, quantity: number, reserved: number) => {
+    setEditingRow(stockId);
+    setEditValues({ quantity, reserved_quantity: reserved });
   };
 
-  const saveEdit = (productId: string, warehouse: string, location: string) => {
-    setStockData(stockData.map(s => 
-      s.productId === productId && s.warehouse === warehouse && s.location === location
-        ? { ...s, ...editValues }
-        : s
-    ));
-    setEditingRow(null);
-    toast({ title: 'Stock updated successfully', description: 'Changes have been logged in Move History' });
+  const saveEdit = async (stockId: string) => {
+    try {
+      await stockService.updateQuantity(stockId, editValues.quantity, editValues.reserved_quantity);
+      toast({ title: 'Stock updated successfully', description: 'Changes have been logged in Move History' });
+      setEditingRow(null);
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: 'Failed to update stock',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   const cancelEdit = () => {
     setEditingRow(null);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -57,8 +89,8 @@ export default function Stock() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Warehouses</SelectItem>
-              {mockWarehouses.map(wh => (
-                <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
+              {warehouses.map(wh => (
+                <SelectItem key={wh.id} value={wh.id.toString()}>{wh.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -78,36 +110,40 @@ export default function Stock() {
               </tr>
             </thead>
             <tbody>
-              {filteredStock.map((stock) => {
-                const isEditing = editingRow === stock.productId;
+              {stockData.map((stock) => {
+                const isEditing = editingRow === stock.id.toString();
+                const freeToUse = stock.quantity - stock.reserved_quantity;
                 return (
-                  <tr key={`${stock.productId}-${stock.warehouse}-${stock.location}`}>
-                    <td className="font-medium">{getProductName(stock.productId)}</td>
-                    <td>{stock.warehouse}</td>
-                    <td>{stock.location}</td>
-                    <td>${stock.costPerUnit}</td>
+                  <tr key={stock.id}>
+                    <td className="font-medium">{stock.product_name || stock.product_id}</td>
+                    <td>{stock.warehouse_name || stock.warehouse_id}</td>
+                    <td>{stock.location_name || stock.location_id}</td>
+                    <td>${stock.cost_per_unit || 0}</td>
                     <td>
                       {isEditing ? (
                         <Input
                           type="number"
-                          value={editValues.onHand}
-                          onChange={(e) => setEditValues({ ...editValues, onHand: parseInt(e.target.value) || 0 })}
+                          value={editValues.quantity}
+                          onChange={(e) => setEditValues({ ...editValues, quantity: parseInt(e.target.value) || 0 })}
                           className="w-24"
                         />
                       ) : (
-                        stock.onHand
+                        stock.quantity
                       )}
                     </td>
                     <td>
                       {isEditing ? (
                         <Input
                           type="number"
-                          value={editValues.freeToUse}
-                          onChange={(e) => setEditValues({ ...editValues, freeToUse: parseInt(e.target.value) || 0 })}
+                          value={editValues.quantity - editValues.reserved_quantity}
+                          onChange={(e) => {
+                            const free = parseInt(e.target.value) || 0;
+                            setEditValues({ ...editValues, reserved_quantity: editValues.quantity - free });
+                          }}
                           className="w-24"
                         />
                       ) : (
-                        stock.freeToUse
+                        freeToUse
                       )}
                     </td>
                     <td>
@@ -116,7 +152,7 @@ export default function Stock() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => saveEdit(stock.productId, stock.warehouse, stock.location)}
+                            onClick={() => saveEdit(stock.id.toString())}
                           >
                             <Check className="h-4 w-4 text-success" />
                           </Button>
@@ -128,7 +164,7 @@ export default function Stock() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => startEdit(stock.productId, stock.onHand, stock.freeToUse)}
+                          onClick={() => startEdit(stock.id.toString(), stock.quantity, stock.reserved_quantity)}
                         >
                           <Edit2 className="h-4 w-4" />
                         </Button>

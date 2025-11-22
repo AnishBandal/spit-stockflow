@@ -4,73 +4,90 @@
 @tailwind components;
 @tailwind utilities;
 
-/* StockMaster Design System - Light Mode Only */
+/*
+Palette:
+#f0f4f8  (bg light)
+#bcccdc  (muted / borders)
+#829ab1  (accent / secondary)
+#486581  (primary)
+#102a43  (dark navy, sidebar / headings)
+*/
 
 @layer base {
   :root {
-    /* Base colors - Light background #F4F4F4 */
-    --background: 0 0% 96%;
-    --foreground: 212 74% 18%;
-    
+    /* ===== Core app colors ===== */
+
+    /* Background: #f0f4f8 */
+    --background: 210 36% 96%;
+    /* Main text: #102a43 */
+    --foreground: 209 61% 16%;
+
     /* Surface colors */
     --card: 0 0% 100%;
-    --card-foreground: 212 74% 18%;
-    
+    --card-foreground: 209 61% 16%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 212 74% 18%;
-    
-    /* Primary brand - #0C2B4E (for headings and tabs) */
-    --primary: 212 74% 18%;
+    --popover-foreground: 209 61% 16%;
+
+    /* Primary - #486581 */
+    --primary: 209 28% 39%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 212 74% 22%;
-    
-    /* Accent - #1D546C (teal accent) */
-    --accent: 198 58% 27%;
+    --primary-hover: 209 28% 45%;
+
+    /* Accent - #829ab1 */
+    --accent: 209 23% 60%;
     --accent-foreground: 0 0% 100%;
-    
-    /* Secondary UI - #1A3D64 (for buttons and navigation) */
-    --secondary: 212 59% 25%;
-    --secondary-foreground: 0 0% 100%;
-    
-    /* Muted elements */
-    --muted: 212 20% 92%;
-    --muted-foreground: 212 20% 45%;
-    
-    /* Status colors */
+
+    /* Secondary - softer accent using #bcccdc */
+    --secondary: 210 31% 80%;
+    --secondary-foreground: 209 61% 16%;
+
+    /* Muted - #bcccdc as base muted */
+    --muted: 210 31% 80%;
+    --muted-foreground: 209 23% 40%;
+
+    /* Status colors (kept generic) */
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
-    
+
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    
+
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    
-    /* Borders and inputs */
-    --border: 212 20% 85%;
-    --input: 212 20% 90%;
-    --ring: 212 74% 18%;
-    
+
+    /* Borders & inputs */
+    --border: 210 31% 80%;   /* #bcccdc */
+    --input: 210 31% 90%;    /* slightly lighter variant */
+    --ring: 209 28% 39%;     /* primary */
+
     /* Border radius */
     --radius: 0.5rem;
-    
-    /* Sidebar - #1A3D64 for navigation */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 212 74% 18%;
-    --sidebar-primary: 212 59% 25%;
+
+    /* ========= Sidebar (Dark – option A) ========= */
+
+    /* Dark navy background: #102a43 */
+    --sidebar-background: 209 61% 16%;
+    --sidebar-foreground: 0 0% 100%;      /* white text */
+
+    /* Active/selected item: use #829ab1 */
+    --sidebar-primary: 209 23% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 212 20% 92%;
-    --sidebar-accent-foreground: 212 74% 18%;
-    --sidebar-border: 212 20% 85%;
-    --sidebar-ring: 212 59% 25%;
-    
+
+    /* Hover / subtle chips: soft grey-blue */
+    --sidebar-accent: 210 31% 80%;
+    --sidebar-accent-foreground: 209 61% 16%;
+
+    --sidebar-border: 0 0% 100% / 20%;
+    --sidebar-ring: 209 23% 60%;
+
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    
-    /* Transitions - Smooth animations */
+
+    /* Transitions */
     --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-smooth: 300ms cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -85,26 +102,35 @@
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
-  
+
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
-  
+
   ::-webkit-scrollbar-track {
     @apply bg-muted;
   }
-  
+
   ::-webkit-scrollbar-thumb {
     @apply bg-border rounded;
   }
-  
+
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/30;
   }
 }
 
+/* ===== Make ALL sidebar text visible on dark bg ===== */
+@layer base {
+  aside,
+  aside * {
+    color: hsl(var(--sidebar-foreground)) !important;
+  }
+}
+
+/* ===== Components ===== */
 @layer components {
   /* Status pill styles */
   .status-pill {
